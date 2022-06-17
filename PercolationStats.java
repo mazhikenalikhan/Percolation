@@ -1,10 +1,13 @@
+import edu.princeton.cs.algs4.StdOut;
 import edu.princeton.cs.algs4.StdRandom;
 import edu.princeton.cs.algs4.StdStats;
-import edu.princeton.cs.algs4.StdOut;
+
 public class PercolationStats {
-    private final int trialCount;
-    private final double[] trialResults;
-    private static double num = 1.96;
+    private int trialCount;
+    private double[] trialResults;
+
+
+    // perform trials independent experiments on an n-by-n grid
     public PercolationStats(int n, int trials) {
         if (n <= 0 || trials <= 0) {
             throw new IllegalArgumentException("N and T must be <= 0");
@@ -25,18 +28,30 @@ public class PercolationStats {
             trialResults[trial] = result;
         }
     }
+
+
+    // sample mean of percolation threshold
     public double mean() {
         return StdStats.mean(trialResults);
     }
+
+    // sample standard deviation of percolation threshold
     public double stddev() {
         return StdStats.stddev(trialResults);
     }
+
+    // low  endpoint of 95% confidence interval
     public double confidenceLo() {
-        return mean() - ((num * stddev()) / Math.sqrt(trialCount));
+        return mean() - ((1.96 * stddev()) / Math.sqrt(trialCount));
+
     }
+
+    // high endpoint of 95% confidence interval
     public double confidenceHi() {
-        return mean() + ((num * stddev()) / Math.sqrt(trialCount));
+        return mean() + ((1.96 * stddev()) / Math.sqrt(trialCount));
     }
+
+    // test client (described below)
     public static void main(String[] args) {
         int gridSize = 10;
         int trialCount = 10;
@@ -46,7 +61,7 @@ public class PercolationStats {
         }
         PercolationStats ps = new PercolationStats(gridSize, trialCount);
 
-        String confidence = "[" + ps.confidenceLo() + ", " + ps.confidenceHi() + "]";
+        String confidence = ps.confidenceLo() + ", " + ps.confidenceHi();
         StdOut.println("mean                    = " + ps.mean());
         StdOut.println("stddev                  = " + ps.stddev());
         StdOut.println("95% confidence interval = " + confidence);

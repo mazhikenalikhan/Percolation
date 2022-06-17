@@ -1,63 +1,169 @@
+import edu.princeton.cs.algs4.StdOut;
+import edu.princeton.cs.algs4.WeightedQuickUnionUF;
+
 public class Percolation {
-    private final Boolean[][] used;
-    private final Boolean[][] grid;
-    private boolean percolated;
-    private final int size;
-    private int opened;
+    private boolean[][] grid;
+    private WeightedQuickUnionUF wqfGrid;
+    private WeightedQuickUnionUF wqfFull;
+    private int gridSize;
+    private int gridSquared;
+    private int virtualTop;
+    private int virtualBottom;
+    private int openSites;
+
     public Percolation(int n) {
         if (n <= 0) throw new IllegalArgumentException("N must be > 0");
-        used = new Boolean[n][n];
-        grid = new Boolean[n][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                used[i][j] = false;
-                grid[i][j] = false;
+        gridSize = n;
+        gridSquared = n * n;
+        grid = new boolean[gridSize][gridSize];
+        wqfGrid = new WeightedQuickUnionUF(gridSquared + 2); // includes virtual top bottom
+        wqfFull = new WeightedQuickUnionUF(gridSquared + 1); // includes virtual top
+        virtualBottom = gridSquared + 1;
+        virtualTop = gridSquared;
+        openSites = 0;
+
+    }
+
+    // Test: open site (row, col) if it is not open already
+    public void open(int row, int col) {
+        validateSite(row, col);
+
+        int shiftRow = row - 1;
+        int shiftCol = col - 1;
+        int flatIndex = flattenGrid(row, col) - 1;
+
+        // If already open, stop
+        if (isOpen(row, col)) {
+            return;
+        }
+
+        // Open Site
+
+        grid[shiftRow][shiftCol] = true;
+        openSites++;
+
+        if (row == 1) {  // Top Row
+            wqfGrid.union(virtualTop, flatIndex);
+            wqfFull.union(virtualTop, flatIndex);
+        }
+
+        if (row == gridSize) {  // Bottom Row
+            wqfGrid.union(virtualBottom, flatIndex);
+        }
+
+        // Check and Open Left
+        if (isOnGrid(row, col - 1) && isOpen(row, col - 1)) {
+            wqfGrid.union(flatIndex, flattenGrid(row, col - 1) - 1);
+            wqfFull.union(flatIndex, flattenGrid(row, col - 1) - 1);
+        }
+
+        // Check and Open Right
+        if (isOnGrid(row, col + 1) && isOpen(row, col + 1)) {
+            wqfGrid.union(flatIndex, flattenGrid(row, col + 1) - 1);
+            wqfFull.union(flatIndex, flattenGrid(row, col + 1) - 1);
+        }
+
+        // Check and Open Up
+        if (isOnGrid(row - 1, col) && isOpen(row - 1, col)) {
+            wqfGrid.union(flatIndex, flattenGrid(row - 1, col) - 1);
+            wqfFull.union(flatIndex, flattenGrid(row - 1, col) - 1);
+        }
+
+        // Check and Open Down
+        if (isOnGrid(row + 1, col) && isOpen(row + 1, col)) {
+            wqfGrid.union(flatIndex, flattenGrid(row + 1, col) - 1);
+            wqfFull.union(flatIndex, flattenGrid(row + 1, col) - 1);
+        }
+
+        // debug
+        // runTests();
+    }
+
+    // Test: is site (row, col) open?
+    public boolean isOpen(int row, int col) {
+        validateSite(row, col);
+        return grid[row - 1][col - 1];
+
+    }
+
+    // Test: is site (row, col) full?
+    public boolean isFull(int row, int col) {
+        validateSite(row, col);
+        return wqfFull.connected(virtualTop, flattenGrid(row, col) - 1);
+    }
+
+    // Test: number of open sites
+    public int numberOfOpenSites() {
+        return openSites;
+    }
+
+    // Test: does the system percolate?
+    public boolean percolates() {
+        return wqfGrid.connected(virtualTop, virtualBottom);
+    }
+
+    // test client
+    public static void main(String[] args) {
+        int size = Integer.parseInt(args[0]);
+
+        Percolation percolation = new Percolation(size);
+        int argCount = args.length;
+        for (int i = 1; argCount >= 2; i += 2) {
+            int row = Integer.parseInt(args[i]);
+            int col = Integer.parseInt(args[i + 1]);
+            StdOut.printf("Adding row: %d  col: %d %n", row, col);
+            percolation.open(row, col);
+            if (percolation.percolates()) {
+                StdOut.printf("%nThe System percolates %n");
+            }
+            argCount -= 2;
+        }
+        if (!percolation.percolates()) {
+            StdOut.print("Does not percolate %n");
+        }
+
+    }
+
+    private int flattenGrid(int row, int col) {
+        return gridSize * (row - 1) + col;
+    }
+
+    private void validateSite(int row, int col) {
+        if (!isOnGrid(row, col)) {
+            throw new IndexOutOfBoundsException("Index is out of bounds");
+        }
+    }
+
+    private boolean isOnGrid(int row, int col) {
+        int shiftRow = row - 1;
+        int shiftCol = col - 1;
+        return (shiftRow >= 0 && shiftCol >= 0 && shiftRow < gridSize && shiftCol < gridSize);
+    }
+
+    /* private void runTests() {
+        for (int row = 1; row <= gridSize; row++) {
+            for (int col = 1; col <= gridSize; col++) {
+                if (isOpen(row, col)) {
+                    StdOut.printf("Row: %d Col: %d is Open %n", row, col);
+                } else {
+                    StdOut.printf("Row: %d Col: %d is not Open %n", row, col);
+                }
+                if (isFull(row, col)) {
+                    StdOut.printf("Row: %d Col: %d is Full %n", row, col);
+                } else {
+                    StdOut.printf("Row: %d Col: %d is not Full %n", row, col);
+                }
+
             }
         }
-        percolated = false;
-        size = n;
-        opened = 0;
-    }
-    public void open(int row, int col) {
-        row--;
-        col--;
-        if (row < 0 || col < 0 || row >= size || col >= size) throw new IllegalArgumentException();
-        if (grid[row][col]) return;
-        opened++;
-        grid[row][col] = true;
-        if (check(row - 1, col) || check(row + 1, col) || check(row, col - 1) || check(row, col + 1) || row == 0)dfs(row, col);
-    }
 
-    private boolean check(int row, int col) {
-        if (row < 0 || col < 0 || row >= size || col >= size) return false;
-        return used[row][col];
+        StdOut.printf("Sites Open: %d %n", numberOfOpenSites());
+        if (percolates()) {
+            StdOut.printf("Percolates %n");
+        } else {
+            StdOut.printf("Does not Percolate %n");
+        }
     }
-
-    private void dfs(int row, int col) {
-        used[row][col] = true;
-        if (row < size - 1 && grid[row + 1][col] && !used[row + 1][col]) dfs(row + 1, col);
-        if (row > 0 && grid[row - 1][col] && !used[row - 1][col]) dfs(row - 1, col);
-        if (col < size - 1 && grid[row][col + 1] && !used[row][col + 1]) dfs(row, col + 1);
-        if (col > 0 && grid[row][col - 1] && !used[row][col - 1]) dfs(row, col - 1);
-        if (row == size - 1) percolated = true;
-    }
-
-    public boolean isOpen(int row, int col) {
-        row--;
-        col--;
-        if (row < 0 || col < 0 || row >= size || col >= size) throw new IllegalArgumentException();
-        return grid[row][col];
-    }
-    public boolean isFull(int row, int col) {
-        row--;
-        col--;
-        if (row < 0 || col < 0 || row >= size || col >= size) throw new IllegalArgumentException();
-        return used[row][col];
-    }
-    public int numberOfOpenSites() {
-        return opened;
-    }
-    public boolean percolates(){
-        return percolated;
-    }
+*/
 }
+
